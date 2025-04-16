@@ -1,7 +1,7 @@
 libraries: 
-  - assets: ./assets
-  - static: ./static
-  - library.bib: ./library.bib
+  assets: ./assets
+  static: ./static
+  library.bib: ./library.bib
 projects: 
   article: 
     local: ./tex/article
