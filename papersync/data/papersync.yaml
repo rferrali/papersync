@@ -1,8 +1,19 @@
-# path of the assets directory, relative to the repo's root
-assets: "./assets"
-# each writing project, with format project_name: project's local path, relative to repo's root
-# the .env file contains a key "PAPERSYNC_PROJECT_NAME" (all caps) that contains the project's remote path
+libraries: 
+  - assets: ./assets
+  - static: ./static
+  - library.bib: ./library.bib
 projects: 
-  # this project has name "article" and its local path is "./tex/article"
-  # consequently, the .env file must contain a key "PAPERSYNC_ARTICLE" that points to the project's remote path
-  article: "./tex/article"
+  article: 
+    local: ./tex/article
+    remote: /home/user/tex/article
+    libraries: 
+      - assets
+      - static
+      - library.bib
+  presentation: 
+    local: ./tex/presentation
+    remote: /home/user/tex/presentation
+    libraries: 
+      - assets
+      - static
+      - library.bib
