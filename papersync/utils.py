@@ -11,27 +11,9 @@ import json
 
 def read_config(confirm=True):
     # check if config file exists
-    yaml_file = Path("papersync.yaml")
-    yml_file = Path("papersync.yml") 
-    if yaml_file.exists() and yml_file.exists():
-        click.echo(f"\u2757 Both 'papersync.yaml' and 'papersync.yml' exist. Using 'papersync.yaml' by default.")
-        config_file = yaml_file
-    elif yaml_file.exists():
-        config_file = yaml_file
-    elif yml_file.exists():
-        config_file = yml_file
-    else:
-        raise click.ClickException(f"\u274c Config file not found. Perhaps you didn't run 'papersync create'? Or you're not using papersync at the root of the local directory.")
-    # env file
-    env_file = Path(".env")
-    is_env = env_file.exists()
-    if is_env:
-        try: 
-            env = dotenv_values(env_file)
-            is_valid_env = True
-        except Exception as e:
-            env = None
-            is_valid_env = False
+    config_file = Path("papersync.yaml")
+    if not config_file.exists():
+        raise click.ClickException(f"\u274c Config file 'papersync.yaml' not found. Perhaps you didn't run 'papersync create'? Or you're not using papersync at the root of the local directory.")
     # check if config file is valid
     # can it be loaded? 
     try:
@@ -60,104 +42,61 @@ def read_config(confirm=True):
     for p_name, project in config['projects'].items():
         project = validate_project(p_name, project, config['libraries'])
     return config
-    projects = []
-    for p_name, project in dirty_projects.items():
-        try: 
-            p_local = project['local']
-        except KeyError:
-            raise click.ClickException(f"\u274c Project {p_name}: The config file must contain a key named 'local' with the project's local path")
-        local = Path(p_local)
-        if not local.exists():
-            raise click.ClickException(f"\u274c Project {p_name}: local directory not found: {p_local}")
-        p_remote = None
-        if 'remote' in project:
-            p_remote = project['remote']
-        if is_env and is_valid_env:
-            env_remote = env.get('PAPERSYNC_' + p_name.upper())
-            if env_remote:
-                if p_remote:
-                    click.echo(f"\u2757 Project {p_name}: the config and the .env files both contain a remote path. Using the value from the config file by default.")
-            else:
-                p_remote = env_remote
-        if not p_remote:
-            if not is_env:
-                raise click.ClickException(f"\u274c Project {p_name}: the config file doesn't contain a remote path, and .env file was not found. Perhaps you're not using papersync at the root of the local directory.")
-            if not is_valid_env:
-                raise click.ClickException(f"\u274c Project {p_name}: the config file doesn't contain a remote path, and the .env file is not valid. Please check its formatting.")
-            raise click.ClickException(f"\u274c Project {p_name}: Remote path not found. Ensure 'remote' is defined in the config file or 'PAPERSYNC_{p_name.upper()}' is set in the .env file (mind the case).")
-        remote = Path(p_remote)
-        if not remote.exists():
-            raise click.ClickException(f"\u274c Project {p_name}: remote directory not found: {p_remote}")
-        assets_link_path = local.joinpath(assets.name)
-        if not assets_link_path.exists():
-            if confirm:
-                click.echo(f"\u2757 Project {p_name}: the local folder does not contain a symlink pointing to the assets library")
-                if click.confirm("Do you want to create one?", abort=True):
-                    assets_link_path.symlink_to(assets.absolute(), target_is_directory=True)
-            else:
-                click.echo(f"Project {p_name}: creating symlink to assets in {project}")
-                assets_link_path.symlink_to(assets.absolute(), target_is_directory=True)
-        if not assets_link_path.is_symlink(): 
-            click.echo(f"\u2757 Project {p_name}: {assets_link_path} is not a symlink pointing to the assets library")
-            if click.confirm("Do you want to delete this folder and create a symlink instead?", abort=True):
-                rmtree(assets_link_path, ignore_errors=True)
-                assets_link_path.symlink_to(assets.absolute(), target_is_directory=True)
-        if not assets_link_path.resolve().absolute() == assets.absolute():
-            click.echo(f"\u2757 Project {p_name}: the {assets_link_path} symlink does not point to the assets library")
-            if click.confirm("Do you want to fix this symlink?", abort=True):
-                assets_link_path.unlink()
-                assets_link_path.symlink_to(assets.absolute(), target_is_directory=True)
-        project = {
-            'name': p_name, 
-            'local': project,
-            'remote': remote
-        }
-        projects.append(project)
-        # do the paths exist?
-    try: 
-        assets = Path(config['assets'])
-    except KeyError:
-        raise click.ClickException(f"\u274c The config file must contain a key named 'assets' that points to the assets directory")
-    if not assets.exists():
-        raise click.ClickException(f"\u274c Assets directory not found: {config['assets']}")
-    # check if .env file exists
-    env_file = Path(".env")
-    if not env_file.exists():
-        raise click.ClickException(f"\u274c .env file not found. Perhaps you didn't run 'papersync create'? Or you're not using papersync at the root of the local directory.")
-    env = dotenv_values(env_file)
-    config["projects"] = projects
-    return config
 
 def validate_project(project_name, project, libraries):
+    # check if local exists
     local = Path(project['local'])
-    remote = Path(project['remote'])
     if not local.exists():
         raise click.ClickException(f"\u274c Project {project_name}: local directory not found: {project['local']}")
     if not local.is_dir():
         raise click.ClickException(f"\u274c Project {project_name}: local path is not a directory: {project['local']}")
+    # check if remote exists
+    # look in env file
+    env_file = Path(".env")
+    is_env = env_file.exists()
+    is_valid_env = False
+    env_remote = None
+    if is_env:
+        try: 
+            env = dotenv_values(env_file)
+            is_valid_env = True
+        except Exception as e:
+            env = None
+            is_valid_env = False
+    if is_env and is_valid_env:
+        env_remote = env.get('PAPERSYNC_' + project_name.upper())
+    # look in config file
+    if 'remote' not in project and not env_remote:
+        raise click.ClickException(f"\u274c Project {project_name}: remote path not defined. Ensure 'remote' is defined in the config file or 'PAPERSYNC_{project_name.upper()}' is set in the .env file (mind the case).")
+    if env_remote:
+        remote = Path(env_remote)
+        if 'remote' in project:
+            click.echo(f"\u2757 Project {project_name}: the config and the .env files both contain a remote path. Using the value from the .env file by default.")
+    else:
+        remote = Path(project['remote'])
     if not remote.exists():
-        raise click.ClickException(f"\u274c Project {project_name}: remote directory not found: {project['remote']}")
+        raise click.ClickException(f"\u274c Project {project_name}: remote directory not found: {remote}")
     if not remote.is_dir():
-        raise click.ClickException(f"\u274c Project {project_name}: remote path is not a directory: {project['remote']}")
+        raise click.ClickException(f"\u274c Project {project_name}: remote path is not a directory: {remote}")
     if 'libraries' not in project:
         project['libraries'] = []
     clean_libraries = []
     for library in project['libraries']:
-        library = validate_library(project_name, local, library, libraries)
+        library = validate_local_library(project_name, local, library, libraries)
         clean_libraries.append(library)
     project['local'] = local
     project['remote'] = remote
     project['libraries'] = clean_libraries
     return project
 
-def validate_library(project_name, local_path, library, libraries):
+def validate_local_library(project_name, local_path, library, libraries):
     # check if library is defined in libraries
     if library not in libraries:
-        raise click.ClickException(f"\u274c Project {project_name}: library '{library}' not defined in config file libraries.")
+        raise click.ClickException(f"\u274c Project {project_name}: library '{library}' isn't defined in as a config file library.")
     # check if library path exists
     local_library_path = local_path.joinpath(library)
     library_path = Path(libraries[library])
-    # itest that the path exists
+    # test that the path exists
     if not local_library_path.exists():
         raise click.ClickException(f"\u274c Project {project_name}: {local_path} doesn't contain a symlink pointing to library '{library}'. Run 'papersync link' to fix.")
     # check if the path is a symlink
