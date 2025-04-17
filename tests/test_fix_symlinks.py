@@ -1,11 +1,10 @@
 import os
-import pytest
 from pathlib import Path
-from papersync.utils import read_config
-import click
+from papersync.cli import link
+from click.testing import CliRunner
 import tempfile
 
-def test_read_config_with_temp_files(monkeypatch):
+def test_read_projects(monkeypatch):
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
@@ -29,7 +28,6 @@ def test_read_config_with_temp_files(monkeypatch):
 
         # Mock the existence of the directories in papersync.yaml
         (temp_path / "tex" / "article").mkdir(parents=True, exist_ok=True)
-        (temp_path / "tex" / "article" / "assets").symlink_to(temp_path / "assets")
         (temp_path / "assets").mkdir(parents=True, exist_ok=True)
         (temp_path / "static").mkdir(parents=True, exist_ok=True)
 
@@ -61,10 +59,20 @@ def test_read_config_with_temp_files(monkeypatch):
             # Switch to the temporary directory
             os.chdir(temp_path)
 
-            # Run the function
-            config = read_config()
-            print(config)
-            assert "libraries" in config
+            # Use CliRunner to invoke the `link` command
+            runner = CliRunner()
+            result = runner.invoke(link, ["--yes", "article"])
+            # Check the output
+            print(result.output)
+            # Assert the command ran successfully
+            assert result.exit_code == 0
+            
+            # Check if the symlink was created
+            local_library_path = temp_path / "tex" / "article" / "assets"
+            library_path = temp_path / "assets"
+            assert local_library_path.exists(), f"Symlink {local_library_path} was not created."
+            assert local_library_path.is_symlink(), f"{local_library_path} is not a symlink."
+            assert local_library_path.resolve() == library_path.resolve(), f"Symlink {local_library_path} does not point to {library_path}."
         finally:
             # Restore the original working directory
             os.chdir(original_cwd)
