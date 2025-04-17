@@ -55,16 +55,15 @@ def push(yes, project):
 @click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def pull(yes, project):
     """
-    Pulls project(s) from their remote directories.
+    Creates symlinks in project(s), pointing to the relevant libraries or repairs them.
 
-    Pulls project(s) from their respective remote directories.
     This command can operate in two modes:
-    1. If a specific project name is provided as an argument, it pulls only that project.
-    2. If no project name is provided, it pulls all projects.
+    1. If a specific project name is provided as an argument, it creates symlinks only for that project.
+    2. If no project name is provided, it creates symlinks for all projects.
 
-    Argumentss:
-        project (str, optional):  The name of the project to push. If not provided, 
-        all projects are pulled.
+    Arguments:
+        project (str, optional): The name of the project to create symlinks for. If not provided, 
+        symlinks are created for all projects.
     """
     # git-related checks
     utils.validate_git_state('pull', yes=yes)
@@ -102,9 +101,20 @@ def create():
 
 @click.command()
 @click.argument('project', default=None, required=False)
-@click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
+@click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def link(yes, project):
-    """Create symlinks pointing shared libraries in PROJECT's local directory. If PROJECT is not specified, all projects are linked."""
+    """
+    Pulls project(s) from their remote directories.
+
+    Pulls project(s) from their respective remote directories.
+    This command can operate in two modes:
+    1. If a specific project name is provided as an argument, it pulls only that project.
+    2. If no project name is provided, it pulls all projects.
+
+    Argumentss:
+        project (str, optional):  The name of the project to push. If not provided, 
+        all projects are pulled.
+    """
     if not project:
         click.echo(f"\u23f3 Creating symlinks...")
         utils.read_config(fix=True, yes=yes)
