@@ -108,7 +108,7 @@ def link(yes, project):
     else:
         click.echo(f"\u23f3 Creating symlinks for project {project}...")
         utils.read_project(project, fix=True, confirm=not yes)
-    click.echo(f"Done!")
+    click.echo(f"\u2705 Done!")
 
 cli.add_command(create)
 cli.add_command(push)
