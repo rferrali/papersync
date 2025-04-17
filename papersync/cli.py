@@ -11,72 +11,55 @@ def cli():
     pass
 
 @click.command()
-def push():
-    """Push projects to their remote directories."""
-    click.echo(f"\u23f3 Pushing projects to their remote directories...")
-    is_git_repo = True
-    try: 
-        repo = Repo()
-    except InvalidGitRepositoryError:
-        click.echo(f"\u2757 This is not a Git repository")
-        is_git_repo = False
-    if is_git_repo:
-        # check if we're on the main branch
-        if repo.active_branch.name != 'main':
-            click.confirm(f"\u2757 You are about to push content from branch {repo.active_branch.name} instead of the main branch. Do you want to continue?", abort=True)
-        if repo.is_dirty():
-            click.confirm(f"\u2757 You are about to push content that has not been committed. Do you want to continue?", abort=True)
-        # check if we're on the latest commit
-        remote = repo.remote()
-        remote.fetch()
-        if repo.head.commit != remote.refs[0].commit:
-            click.confirm(f"\u2757 You are behind the latest commit. You might be pushing content that is not up to date. Do you want to continue?", abort=True)
-    ok = True
-    config = utils.read_config()
-    for project in config['projects']:
-        click.echo(f"Project {project['name']}: checking that everything is ok...", nl=False)
-        # compare local and remote
-        check = utils.check_push(project['local'], project['remote'], config['assets'])
-        if len(check['right_only']) > 0 or len(check['diff_files']) > 0:
-            ok = False
-            click.echo(f"\n  \u2757 Pushing may delete some content you need in the remote directory.")
-            if len(check['right_only']) > 0:
-                click.echo(f"  These files and directories are not in local:")
-                for f in check['right_only']:
-                    click.echo(f"    {f}")
-            if len(check['diff_files']) > 0:
-                click.echo(f"  These files are more recent in remote:")
-                for f in check['diff_files']:
-                    click.echo(f"    {f}")
-        else: 
-            click.echo(f" \u2705")
-    if not ok:
-        click.confirm("Are you sure you want to push?", abort=True)
-    for project in config['projects']:
-        click.echo(f"Project {project['name']}: pushing {project['local']} to {project['remote']}", nl=False)
-        utils.push_project(project['local'], project['remote'])
-        click.echo(f" \u2705")
+@click.argument('project', default=None, required=False)
+@click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
+def push(yes, project):
+    """Push project PROJECT to its remote directory. If PROJECT is not specified, all projects are pushed."""
+    # git-related checks
+    utils.validate_git_state('push', yes=yes)
+    if not project:
+        click.echo(f"\u23f3 Pushing all projects to their remote directories...")
+        # check if any project is malformed
+        projects = utils.read_projects(fix=False, yes=yes)
+        # check file overwrites
+        ok = True
+        for project_name, project in projects.items():
+            click.echo(f"Project {project_name}: ", nl=False)
+            # check if project is malformed
+            ok = utils.validate_push_files_overwrite(project, yes=True)
+        if not ok:
+            click.confirm("Are you sure you want to push?", abort=True)
+        for project_name, project in projects.items():
+            click.echo(f"Project {project_name}: ", nl=False)
+            utils.push_project(project)
+    else:
+        click.echo(f"\u23f3 Pushing project {project} to its remote directory...")
+        # check if project is malformed
+        project = utils.read_project(project, fix=False, yes=yes)
+        # check file overwrites
+        utils.validate_push_files_overwrite(project, yes=yes)
+        utils.push_project(project)
     click.echo(f"Done!")
 
 @click.command()
-def pull():
+@click.argument('project', default=None, required=False)
+@click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
+def pull(yes, project):
     """Pull projects from their remote directories."""
-    click.echo(f"\u23f3 Pulling projects from their remote directories...")
-    is_git_repo = True
-    try: 
-        repo = Repo()
-    except InvalidGitRepositoryError:
-        click.echo(f"\u2757 This is not a Git repository")
-        is_git_repo = False
-    if is_git_repo:
-        # check if repo is dirty
-        if repo.is_dirty():
-            click.confirm(f"\u2757 The repo has changes that have not been committed. Pulling may overwrite them. Do you want to continue?", abort=True)
-    config = utils.read_config(confirm=True)
-    for project in config['projects']:
-        click.echo(f"Project {project['name']}: pulling {project['remote']} to {project['local']}", nl=False)
-        utils.pull_project(project['local'], project['remote'], config['assets'])
-        click.echo(f" \u2705")
+    # git-related checks
+    utils.validate_git_state('pull', yes=yes)
+    if not project:
+        click.echo(f"\u23f3 Pulling all projects from their remote directories...")
+        # check if any project is malformed
+        projects = utils.read_projects(fix=False, yes=yes)
+        for project_name, project in projects.items():
+            click.echo(f"Project {project['name']}: ", nl=False)
+            utils.pull_project(project)
+    else:
+        click.echo(f"\u23f3 Pulling project {project} from its remote directory...")
+        # check if project is malformed
+        project = utils.read_project(project, fix=False, yes=yes)
+        utils.pull_project(project)
     click.echo(f"Done!")
 
 @click.command()
@@ -104,10 +87,10 @@ def link(yes, project):
     """Create symlinks pointing shared libraries in PROJECT's local directory. If PROJECT is not specified, all projects are linked."""
     if not project:
         click.echo(f"\u23f3 Creating symlinks...")
-        utils.read_config(fix=True, confirm=not yes)
+        utils.read_config(fix=True, yes=yes)
     else:
         click.echo(f"\u23f3 Creating symlinks for project {project}...")
-        utils.read_project(project, fix=True, confirm=not yes)
+        utils.read_project(project, fix=True, yes=yes)
     click.echo(f"\u2705 Done!")
 
 cli.add_command(create)
