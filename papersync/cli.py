@@ -12,9 +12,18 @@ def cli():
 
 @click.command()
 @click.argument('project', default=None, required=False)
-@click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
+@click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def push(yes, project):
-    """Push project PROJECT to its remote directory. If PROJECT is not specified, all projects are pushed."""
+    """
+    Pushes project(s) to their respective remote directories.
+    This command can operate in two modes:
+    1. If a specific project name is provided as an argument, it pushes only that project.
+    2. If no project name is provided, it pushes all projects.
+
+    Arguments:
+        project (str, optional): The name of the project to push. If not provided, 
+        all projects are pushed.
+    """
     # git-related checks
     utils.validate_git_state('push', yes=yes)
     if not project:
@@ -43,9 +52,20 @@ def push(yes, project):
 
 @click.command()
 @click.argument('project', default=None, required=False)
-@click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
+@click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def pull(yes, project):
-    """Pull projects from their remote directories."""
+    """
+    Pulls project(s) from their remote directories.
+
+    Pulls project(s) from their respective remote directories.
+    This command can operate in two modes:
+    1. If a specific project name is provided as an argument, it pulls only that project.
+    2. If no project name is provided, it pulls all projects.
+
+    Argumentss:
+        project (str, optional):  The name of the project to push. If not provided, 
+        all projects are pulled.
+    """
     # git-related checks
     utils.validate_git_state('pull', yes=yes)
     if not project:

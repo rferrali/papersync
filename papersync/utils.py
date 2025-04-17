@@ -11,6 +11,24 @@ import json
 from git import Repo, InvalidGitRepositoryError
 
 def read_projects(fix=False, yes=False):
+    """
+    Reads and validates the projects configuration.
+
+    This function retrieves the projects from the configuration file,
+    validates each project, and optionally fixes any issues based on
+    the provided parameters.
+
+    Args:
+        fix (bool, optional): If True, attempts to fix any issues found
+            during project validation. Defaults to False.
+        yes (bool, optional): If True, automatically confirms any prompts
+            during the fixing process. Defaults to False.
+
+    Returns:
+        dict: A dictionary containing the validated projects, where the
+        keys are project names and the values are the validated project
+        configurations.
+    """
     config = validate_config()
     # are projects valid? 
     projects = {}
@@ -50,6 +68,20 @@ def validate_config():
     return config
 
 def read_project(project_name, fix=False, yes=False):
+    """
+    Reads and validates a project configuration.
+
+    Args:
+        project_name (str): The name of the project to read.
+        fix (bool, optional): Whether to attempt to fix issues in the project configuration. Defaults to False.
+        yes (bool, optional): Automatically confirm prompts when fixing issues. Defaults to False.
+
+    Returns:
+        dict: The validated project configuration.
+
+    Raises:
+        click.ClickException: If the project is not found in the configuration file.
+    """
     config = validate_config()
     # check if project exists
     if project_name not in config['projects']:
@@ -59,6 +91,27 @@ def read_project(project_name, fix=False, yes=False):
     return project
 
 def validate_project(project_name, project, libraries, fix=False, yes=False):
+    """
+    Validates the configuration of a project by checking the existence and validity of 
+    its local and remote directories, as well as its associated libraries.
+
+    Args:
+        project_name (str): The name of the project being validated.
+        project (dict): A dictionary containing project configuration, including 'local', 
+                        'remote', and 'libraries' keys.
+        libraries (dict): A dictionary of available libraries for validation.
+        fix (bool, optional): If True, attempts to fix issues found during validation. Defaults to False.
+        yes (bool, optional): If True, automatically confirms prompts during the fixing process. Defaults to False.
+
+    Raises:
+        click.ClickException: If the local directory does not exist or is not a directory.
+        click.ClickException: If the remote directory is not defined, does not exist, or is not a directory.
+        click.ClickException: If both the configuration file and the .env file contain a remote path.
+
+    Returns:
+        dict: The updated project dictionary with validated and resolved 'local', 'remote', 
+              and 'libraries' paths.
+    """
     # check if local exists
     local = Path(project['local'])
     if not local.exists():
@@ -105,6 +158,29 @@ def validate_project(project_name, project, libraries, fix=False, yes=False):
     return project
 
 def validate_local_library(project_name, local_path, library, libraries, fix=False, yes=False):
+    """
+    Validates the local library configuration for a given project.
+
+    This function ensures that the specified library is properly configured
+    as a symlink in the local project directory. It performs several checks
+    and optionally fixes issues if requested.
+
+    Args:
+        project_name (str): The name of the project being validated.
+        local_path (Path): The local path to the project's directory.
+        library (str): The name of the library to validate.
+        libraries (dict): A dictionary mapping library names to their shared paths.
+        fix (bool, optional): Whether to attempt fixing issues automatically. Defaults to False.
+        yes (bool, optional): If True, skips confirmation prompts when fixing issues. Defaults to False.
+
+    Raises:
+        click.ClickException: If validation fails and `fix` is False, or if an issue cannot be resolved.
+
+    Returns:
+        dict: A dictionary containing:
+            - "local" (Path): The local symlink path to the library.
+            - "shared" (Path): The shared path to the library.
+    """
     # check if library is defined in libraries
     if library not in libraries:
         raise click.ClickException(f"\u274c Project {project_name}: library '{library}' isn't defined in as a config file library.")
@@ -171,6 +247,32 @@ def validate_git_state(action, yes=False):
             pass
 
 def validate_push_files_overwrite(project, yes=False):
+    """
+    Validates whether it is safe to overwrite files during a push operation.
+
+    This function checks for potential conflicts between local and remote files
+    in the specified project. It identifies files that are present only in the
+    remote directory or files that are more recent in the remote directory. If
+    such conflicts are found, the user is warned and prompted for confirmation
+    before proceeding with the push operation.
+
+    Args:
+        project: The project object or path containing the files to be validated.
+        yes (bool, optional): If True, skips the confirmation prompt and assumes
+            the user agrees to proceed. Defaults to False.
+
+    Returns:
+        bool: True if it is safe to proceed with the push operation, False otherwise.
+
+    Raises:
+        click.Abort: If the user chooses not to proceed when prompted for confirmation.
+
+    Notes:
+        - The function uses the `diff_files` utility to determine differences
+          between local and remote directories.
+        - User interaction is handled via the `click` library for terminal output
+          and confirmation prompts.
+    """
     click.echo(f"Checking that files are safe for owerwrite...", nl=False)
     ok = True
     diff = diff_files(project)
@@ -191,13 +293,33 @@ def validate_push_files_overwrite(project, yes=False):
         click.confirm("Are you sure you want to push?", abort=True)
     return ok
 
-def check_push(local, remote, assets):
-    compare = dircmp(local, remote)
-    # extract folder name from assets path
-    assets = Path(assets).name
-    return diff_files(compare, local, remote, assets)
-
 def diff_files(project, name='', dcmp=None):
+    """
+    Compare the contents of two directories (local and remote) and identify files
+    that are either only present in the remote directory or differ between the two.
+
+    Args:
+        project (dict): A dictionary containing the following keys:
+            - 'local' (str): Path to the local directory.
+            - 'remote' (str): Path to the remote directory.
+            - 'libraries' (list): A list of library names to ignore in the root directory.
+        name (str, optional): The relative path within the directory structure being compared.
+                              Defaults to an empty string, representing the root.
+        dcmp (filecmp.dircmp, optional): A dircmp object used for directory comparison.
+                                         If None, a new dircmp object is created using the
+                                         local and remote paths. Defaults to None.
+
+    Returns:
+        dict: A dictionary with the following keys:
+            - "right_only" (list): A list of file paths that are only present in the remote directory.
+            - "diff_files" (list): A list of file paths that differ between the local and remote directories,
+                                   where the remote file is more recent than the local file.
+
+    Notes:
+        - Files or directories listed in the 'libraries' key of the project dictionary are ignored
+          when they are in the root directory.
+        - The function recursively compares subdirectories and aggregates the results.
+    """
     if dcmp is None:
         dcmp = dircmp(project['local'], project['remote'])
     out = {
@@ -230,6 +352,23 @@ def diff_files(project, name='', dcmp=None):
 
 # copy contents of local to remote
 def push_project(project):
+    """
+    Pushes a project from a local directory to a remote directory.
+
+    This function removes the contents of the remote directory (if it exists),
+    then copies the contents of the local directory to the remote directory.
+
+    Args:
+        project (dict): A dictionary containing the following keys:
+            - 'local' (str): The path to the local directory.
+            - 'remote' (str): The path to the remote directory.
+
+    Raises:
+        OSError: If an error occurs during the removal or copying of directories.
+
+    Side Effects:
+        Prints status messages to the console using `click.echo`.
+    """
     click.echo(f"Pushing {project['local']} to {project['remote']}", nl=False)
     rmtree(project, ignore_errors=True)
     copytree(project['local'], project['remote'])
