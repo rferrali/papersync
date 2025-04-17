@@ -98,17 +98,16 @@ def create():
     click.echo(f"\u2705 Done! Please update papersync.yaml and .env with your own paths.")
 
 @click.command()
-@click.argument('name')
+@click.argument('project', default=None, required=False)
 @click.option('-y', '--yes', is_flag=True, help='Runs non-interactively by saying yes to prompts')
-def link(yes, name):
-    """Create symlinks pointing to the assets directory in a project's NAME local directory. If NAME is not specified, all projects are linked."""
-    if name is None:
-        click.echo(f"\u2757 No project name specified. Linking all projects.")
-    click.echo(f"\u23f3 Creating symlinks...")
-    if name is None:
+def link(yes, project):
+    """Create symlinks pointing shared libraries in PROJECT's local directory. If PROJECT is not specified, all projects are linked."""
+    if not project:
+        click.echo(f"\u23f3 Creating symlinks...")
         utils.read_config(fix=True, confirm=not yes)
     else:
-        utils.read_project(name, fix=True, confirm=not yes)
+        click.echo(f"\u23f3 Creating symlinks for project {project}...")
+        utils.read_project(project, fix=True, confirm=not yes)
     click.echo(f"Done!")
 
 cli.add_command(create)
