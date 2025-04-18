@@ -55,15 +55,16 @@ def push(yes, project):
 @click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def pull(yes, project):
     """
-    Creates symlinks in project(s), pointing to the relevant libraries or repairs them.
+    Pulls project(s) from their remote directories.
 
+    Pulls project(s) from their respective remote directories.
     This command can operate in two modes:
-    1. If a specific project name is provided as an argument, it creates symlinks only for that project.
-    2. If no project name is provided, it creates symlinks for all projects.
+    1. If a specific project name is provided as an argument, it pulls only that project.
+    2. If no project name is provided, it pulls all projects.
 
-    Arguments:
-        project (str, optional): The name of the project to create symlinks for. If not provided, 
-        symlinks are created for all projects.
+    Argumentss:
+        project (str, optional):  The name of the project to push. If not provided, 
+        all projects are pulled.
     """
     # git-related checks
     utils.validate_git_state('pull', yes=yes)
@@ -104,16 +105,15 @@ def create():
 @click.option('-y', '--yes', is_flag=True, help='Bypass confirmation prompts')
 def link(yes, project):
     """
-    Pulls project(s) from their remote directories.
+    Creates symlinks in project(s), pointing to the relevant libraries or repairs them.
 
-    Pulls project(s) from their respective remote directories.
     This command can operate in two modes:
-    1. If a specific project name is provided as an argument, it pulls only that project.
-    2. If no project name is provided, it pulls all projects.
+    1. If a specific project name is provided as an argument, it creates symlinks only for that project.
+    2. If no project name is provided, it creates symlinks for all projects.
 
-    Argumentss:
-        project (str, optional):  The name of the project to push. If not provided, 
-        all projects are pulled.
+    Arguments:
+        project (str, optional): The name of the project to create symlinks for. If not provided, 
+        symlinks are created for all projects.
     """
     if not project:
         click.echo(f"\u23f3 Creating symlinks...")
